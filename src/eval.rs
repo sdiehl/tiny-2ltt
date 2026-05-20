@@ -31,27 +31,28 @@ pub struct Env {
 }
 
 impl Env {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    fn push_val(&self, n: Name, v: Val) -> Self {
-        let mut e = self.clone();
-        e.scope.push((n, Entry::Val(v)));
-        e
+    fn push_val(&self, nm: Name, val: Val) -> Self {
+        let mut env = self.clone();
+        env.scope.push((nm, Entry::Val(val)));
+        env
     }
 
-    fn push_code(&self, n: Name, fresh: Name) -> Self {
-        let mut e = self.clone();
-        e.scope.push((n, Entry::CodeVar(fresh)));
-        e
+    fn push_code(&self, nm: Name, fresh: Name) -> Self {
+        let mut env = self.clone();
+        env.scope.push((nm, Entry::CodeVar(fresh)));
+        env
     }
 
-    fn lookup(&self, n: &str) -> Option<&Entry> {
+    fn lookup(&self, nm: &str) -> Option<&Entry> {
         self.scope
             .iter()
             .rev()
-            .find(|(k, _)| k.as_ref() == n)
+            .find(|(k, _)| k.as_ref() == nm)
             .map(|(_, e)| e)
     }
 }
@@ -62,16 +63,17 @@ pub struct Globals {
 }
 
 impl Globals {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn bind(&mut self, n: Name, v: Val) {
-        self.map.insert(n.to_string(), v);
+    pub fn bind(&mut self, nm: &Name, val: Val) {
+        self.map.insert(nm.to_string(), val);
     }
 
-    fn lookup(&self, n: &str) -> Option<&Val> {
-        self.map.get(n)
+    fn lookup(&self, nm: &str) -> Option<&Val> {
+        self.map.get(nm)
     }
 }
 
@@ -81,81 +83,81 @@ pub struct Gen {
 }
 
 impl Gen {
-    pub fn new() -> Self {
-        Self::default()
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { counter: 0 }
     }
 
     fn fresh(&mut self, base: &str) -> Name {
-        let n = self.counter;
+        let id = self.counter;
         self.counter += 1;
         let trimmed = base
             .trim_end_matches(char::is_numeric)
             .trim_end_matches('_');
         let base = if trimmed.is_empty() { "x" } else { trimmed };
-        name(&format!("{base}_{n}"))
+        name(&format!("{base}_{id}"))
     }
 }
 
-pub fn eval0(gl: &Globals, g: &mut Gen, env: &Env, t: &Tm) -> Result<Val> {
-    match t {
-        Tm::Var(n) => match env.lookup(n) {
-            Some(Entry::Val(v)) => Ok(v.clone()),
+pub fn eval0(gl: &Globals, gen: &mut Gen, env: &Env, tm: &Tm) -> Result<Val> {
+    match tm {
+        Tm::Var(nm) => match env.lookup(nm) {
+            Some(Entry::Val(val)) => Ok(val.clone()),
             Some(Entry::CodeVar(_)) => Err(Error::Runtime(format!(
-                "stage-1 variable `{n}` used at stage 0"
+                "stage-1 variable `{nm}` used at stage 0"
             ))),
             None => gl
-                .lookup(n)
+                .lookup(nm)
                 .cloned()
-                .ok_or_else(|| Error::Runtime(format!("unbound variable `{n}`"))),
+                .ok_or_else(|| Error::Runtime(format!("unbound variable `{nm}`"))),
         },
         Tm::NatLit(n) => Ok(Val::Nat(*n)),
         Tm::BoolLit(b) => Ok(Val::Bool(*b)),
-        Tm::Lam(n, _, b) => Ok(Val::Lam(Rc::new(Closure {
+        Tm::Lam(nm, _, body) => Ok(Val::Lam(Rc::new(Closure {
             env: env.clone(),
-            param: n.clone(),
-            body: Rc::clone(b),
+            param: nm.clone(),
+            body: Rc::clone(body),
         }))),
-        Tm::App(f, a) => {
-            let vf = eval0(gl, g, env, f)?;
-            let va = eval0(gl, g, env, a)?;
-            apply(gl, g, vf, va)
+        Tm::App(fun, arg) => {
+            let vf = eval0(gl, gen, env, fun)?;
+            let va = eval0(gl, gen, env, arg)?;
+            apply(gl, gen, vf, va)
         }
-        Tm::Let(n, _, v, b) => {
-            let vv = eval0(gl, g, env, v)?;
-            let env2 = env.push_val(n.clone(), vv);
-            eval0(gl, g, &env2, b)
+        Tm::Let(nm, _, val, body) => {
+            let vv = eval0(gl, gen, env, val)?;
+            let env2 = env.push_val(nm.clone(), vv);
+            eval0(gl, gen, &env2, body)
         }
-        Tm::Bin(op, a, b) => {
-            let va = eval0(gl, g, env, a)?;
-            let vb = eval0(gl, g, env, b)?;
-            bin_val(*op, &va, &vb)
+        Tm::Bin(op, lhs, rhs) => {
+            let vl = eval0(gl, gen, env, lhs)?;
+            let vr = eval0(gl, gen, env, rhs)?;
+            bin_val(*op, &vl, &vr)
         }
-        Tm::If(c, th, el) => match eval0(gl, g, env, c)? {
-            Val::Bool(true) => eval0(gl, g, env, th),
-            Val::Bool(false) => eval0(gl, g, env, el),
+        Tm::If(cnd, th, el) => match eval0(gl, gen, env, cnd)? {
+            Val::Bool(true) => eval0(gl, gen, env, th),
+            Val::Bool(false) => eval0(gl, gen, env, el),
             _ => Err(Error::Runtime("if on non-bool".into())),
         },
         Tm::Quote(e) => {
-            let body = eval1(gl, g, env, e)?;
+            let body = eval1(gl, gen, env, e)?;
             Ok(Val::Code(Rc::new(body)))
         }
         Tm::Splice(_) => Err(Error::Runtime("splice at stage 0".into())),
-        Tm::Ann(e, _) => eval0(gl, g, env, e),
+        Tm::Ann(e, _) => eval0(gl, gen, env, e),
     }
 }
 
-fn apply(gl: &Globals, g: &mut Gen, f: Val, a: Val) -> Result<Val> {
-    match f {
-        Val::Lam(cl) => {
-            let env2 = cl.env.push_val(cl.param.clone(), a);
-            eval0(gl, g, &env2, &cl.body)
-        }
-        _ => Err(Error::Runtime("applying non-function".into())),
+fn apply(gl: &Globals, gen: &mut Gen, fun: Val, arg: Val) -> Result<Val> {
+    if let Val::Lam(cl) = fun {
+        let env2 = cl.env.push_val(cl.param.clone(), arg);
+        eval0(gl, gen, &env2, &cl.body)
+    } else {
+        Err(Error::Runtime("applying non-function".into()))
     }
 }
 
-fn bin_val(op: BinOp, a: &Val, b: &Val) -> Result<Val> {
-    match (a, b) {
+fn bin_val(op: BinOp, lhs: &Val, rhs: &Val) -> Result<Val> {
+    match (lhs, rhs) {
         (Val::Nat(x), Val::Nat(y)) => Ok(match op {
             BinOp::Add => Val::Nat(x + y),
             BinOp::Sub => Val::Nat(x - y),
@@ -166,55 +168,56 @@ fn bin_val(op: BinOp, a: &Val, b: &Val) -> Result<Val> {
     }
 }
 
-fn eval1(gl: &Globals, g: &mut Gen, env: &Env, t: &Tm) -> Result<Tm> {
-    match t {
-        Tm::Var(n) => match env.lookup(n) {
+fn eval1(gl: &Globals, gen: &mut Gen, env: &Env, tm: &Tm) -> Result<Tm> {
+    match tm {
+        Tm::Var(nm) => match env.lookup(nm) {
             Some(Entry::CodeVar(fresh)) => Ok(Tm::Var(fresh.clone())),
             Some(Entry::Val(_)) => Err(Error::Runtime(format!(
-                "stage-0 variable `{n}` used at stage 1"
+                "stage-0 variable `{nm}` used at stage 1"
             ))),
-            None => Err(Error::Runtime(format!("unbound stage-1 variable `{n}`"))),
+            None => Err(Error::Runtime(format!("unbound stage-1 variable `{nm}`"))),
         },
         Tm::NatLit(n) => Ok(Tm::NatLit(*n)),
         Tm::BoolLit(b) => Ok(Tm::BoolLit(*b)),
-        Tm::Lam(n, ann, b) => {
-            let f = g.fresh(n);
-            let env2 = env.push_code(n.clone(), f.clone());
-            let body = eval1(gl, g, &env2, b)?;
-            Ok(Tm::Lam(f, ann.clone(), Rc::new(body)))
+        Tm::Lam(nm, ann, body) => {
+            let fresh = gen.fresh(nm);
+            let env2 = env.push_code(nm.clone(), fresh.clone());
+            let body2 = eval1(gl, gen, &env2, body)?;
+            Ok(Tm::Lam(fresh, ann.clone(), Rc::new(body2)))
         }
-        Tm::App(f, a) => Ok(Tm::App(
-            Rc::new(eval1(gl, g, env, f)?),
-            Rc::new(eval1(gl, g, env, a)?),
+        Tm::App(fun, arg) => Ok(Tm::App(
+            Rc::new(eval1(gl, gen, env, fun)?),
+            Rc::new(eval1(gl, gen, env, arg)?),
         )),
-        Tm::Let(n, ann, v, b) => {
-            let nv = eval1(gl, g, env, v)?;
-            let f = g.fresh(n);
-            let env2 = env.push_code(n.clone(), f.clone());
-            let nb = eval1(gl, g, &env2, b)?;
-            Ok(Tm::Let(f, ann.clone(), Rc::new(nv), Rc::new(nb)))
+        Tm::Let(nm, ann, val, body) => {
+            let nv = eval1(gl, gen, env, val)?;
+            let fresh = gen.fresh(nm);
+            let env2 = env.push_code(nm.clone(), fresh.clone());
+            let nb = eval1(gl, gen, &env2, body)?;
+            Ok(Tm::Let(fresh, ann.clone(), Rc::new(nv), Rc::new(nb)))
         }
-        Tm::Bin(op, a, b) => Ok(Tm::Bin(
+        Tm::Bin(op, lhs, rhs) => Ok(Tm::Bin(
             *op,
-            Rc::new(eval1(gl, g, env, a)?),
-            Rc::new(eval1(gl, g, env, b)?),
+            Rc::new(eval1(gl, gen, env, lhs)?),
+            Rc::new(eval1(gl, gen, env, rhs)?),
         )),
-        Tm::If(c, th, el) => Ok(Tm::If(
-            Rc::new(eval1(gl, g, env, c)?),
-            Rc::new(eval1(gl, g, env, th)?),
-            Rc::new(eval1(gl, g, env, el)?),
+        Tm::If(cnd, th, el) => Ok(Tm::If(
+            Rc::new(eval1(gl, gen, env, cnd)?),
+            Rc::new(eval1(gl, gen, env, th)?),
+            Rc::new(eval1(gl, gen, env, el)?),
         )),
         Tm::Quote(_) => Err(Error::Runtime("nested quote at stage 1".into())),
-        Tm::Splice(e) => match eval0(gl, g, env, e)? {
+        Tm::Splice(e) => match eval0(gl, gen, env, e)? {
             Val::Code(t) => Ok((*t).clone()),
             _ => Err(Error::Runtime("splice of non-code".into())),
         },
-        Tm::Ann(e, _) => eval1(gl, g, env, e),
+        Tm::Ann(e, _) => eval1(gl, gen, env, e),
     }
 }
 
-pub fn val_to_tm(v: &Val) -> Tm {
-    match v {
+#[must_use]
+pub fn val_to_tm(val: &Val) -> Tm {
+    match val {
         Val::Nat(n) => Tm::NatLit(*n),
         Val::Bool(b) => Tm::BoolLit(*b),
         Val::Code(t) => Tm::Quote(Rc::clone(t)),

@@ -1,0 +1,139 @@
+use std::rc::Rc;
+
+use crate::lexer::{LexicalError, Token};
+use crate::syntax::{fold_lams, name, BinOp, Decl, Tm, Ty};
+
+grammar;
+
+pub Program: Vec<Decl> = {
+    <ds:Decl*> => ds,
+};
+
+Decl: Decl = {
+    "let" <n:"IDENT"> ":" <ty:Type> "=" <body:Expr> ";" => {
+        Decl::Let(name(&n), Rc::new(ty), Rc::new(body))
+    },
+    "eval" <e:Expr> ";" => Decl::Eval(Rc::new(e)),
+};
+
+pub Type: Ty = {
+    <a:TypeAtom> "->" <b:Type> => Ty::arr(a, b),
+    TypeAtom,
+};
+
+TypeAtom: Ty = {
+    "Nat" => Ty::Nat,
+    "Bool" => Ty::Bool,
+    "Code" <a:TypeAtom> => Ty::code(a),
+    "(" <t:Type> ")" => t,
+};
+
+pub Expr: Tm = {
+    "let" <n:"IDENT"> <ann:LetAnn?> "=" <v:Expr> "in" <b:Expr> => {
+        Tm::Let(name(&n), ann.map(Rc::new), Rc::new(v), Rc::new(b))
+    },
+    "if" <c:Expr> "then" <t:Expr> "else" <e:Expr> => {
+        Tm::If(Rc::new(c), Rc::new(t), Rc::new(e))
+    },
+    "\\" <ps:LamParams> "." <body:Expr> => fold_lams(ps, body),
+    "\\" <ps:LamParams> "=>" <body:Expr> => fold_lams(ps, body),
+    "fn" <ps:LamParams> "." <body:Expr> => fold_lams(ps, body),
+    "fn" <ps:LamParams> "=>" <body:Expr> => fold_lams(ps, body),
+    ExprAnn,
+};
+
+LetAnn: Ty = {
+    ":" <t:Type> => t,
+};
+
+LamParams: Vec<(crate::syntax::Name, Option<Rc<Ty>>)> = {
+    <p:LamParam> => vec![p],
+    <p:LamParam> <rest:LamParams> => {
+        let mut v = vec![p];
+        v.extend(rest);
+        v
+    },
+};
+
+LamParam: (crate::syntax::Name, Option<Rc<Ty>>) = {
+    <n:"IDENT"> => (name(&n), None),
+    "(" <n:"IDENT"> ":" <t:Type> ")" => (name(&n), Some(Rc::new(t))),
+};
+
+ExprAnn: Tm = {
+    ExprCmp,
+    <e:ExprCmp> ":" <t:Type> => Tm::Ann(Rc::new(e), Rc::new(t)),
+};
+
+ExprCmp: Tm = {
+    ExprAdd,
+    <l:ExprCmp> "==" <r:ExprAdd> => Tm::Bin(BinOp::Eq, Rc::new(l), Rc::new(r)),
+};
+
+ExprAdd: Tm = {
+    ExprMul,
+    <l:ExprAdd> "+" <r:ExprMul> => Tm::Bin(BinOp::Add, Rc::new(l), Rc::new(r)),
+    <l:ExprAdd> "-" <r:ExprMul> => Tm::Bin(BinOp::Sub, Rc::new(l), Rc::new(r)),
+};
+
+ExprMul: Tm = {
+    ExprApp,
+    <l:ExprMul> "*" <r:ExprApp> => Tm::Bin(BinOp::Mul, Rc::new(l), Rc::new(r)),
+};
+
+ExprApp: Tm = {
+    ExprPre,
+    <f:ExprApp> <x:ExprPre> => Tm::App(Rc::new(f), Rc::new(x)),
+};
+
+ExprPre: Tm = {
+    Atom,
+    "~" <e:ExprPre> => Tm::Splice(Rc::new(e)),
+    "<" <e:Expr> ">" => Tm::Quote(Rc::new(e)),
+};
+
+Atom: Tm = {
+    <n:"NUM"> => Tm::NatLit(n),
+    "true" => Tm::BoolLit(true),
+    "false" => Tm::BoolLit(false),
+    <s:"IDENT"> => Tm::Var(name(&s)),
+    "(" <e:Expr> ")" => e,
+};
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "let" => Token::Let,
+        "in" => Token::In,
+        "if" => Token::If,
+        "then" => Token::Then,
+        "else" => Token::Else,
+        "true" => Token::True,
+        "false" => Token::False,
+        "eval" => Token::Eval,
+        "Nat" => Token::NatTy,
+        "Bool" => Token::BoolTy,
+        "Code" => Token::Code,
+        "fn" => Token::Fn,
+        "=>" => Token::FatArrow,
+        "->" => Token::Arrow,
+        "=" => Token::Eq,
+        "==" => Token::EqEq,
+        "<" => Token::Lt,
+        ">" => Token::Gt,
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        ":" => Token::Colon,
+        ";" => Token::Semi,
+        "." => Token::Dot,
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+        "\\" => Token::Lambda,
+        "~" => Token::Tilde,
+        "NUM" => Token::Num(<i64>),
+        "IDENT" => Token::Ident(<String>),
+    }
+}

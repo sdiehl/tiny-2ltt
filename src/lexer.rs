@@ -1,9 +1,9 @@
-use logos::Logos;
+use std::fmt;
 
-use crate::errors::{Error, Result};
+use logos::{skip, Lexer as LogosLexer, Logos};
+use thiserror::Error;
 
 #[derive(Logos, Debug, Clone, PartialEq, Eq)]
-#[logos(skip r"[ \t\r\n\f]+", skip(r"--[^\n]*", allow_greedy = true))]
 pub enum Token {
     #[token("let")]
     Let,
@@ -29,6 +29,7 @@ pub enum Token {
     Code,
     #[token("fn")]
     Fn,
+
     #[token("=>")]
     FatArrow,
     #[token("->")]
@@ -51,42 +52,97 @@ pub enum Token {
     Colon,
     #[token(";")]
     Semi,
-    #[token(",")]
-    Comma,
     #[token(".")]
     Dot,
     #[token("(")]
     LParen,
     #[token(")")]
     RParen,
-    #[token("[")]
-    LBracket,
-    #[token("]")]
-    RBracket,
     #[token("\\")]
     Lambda,
     #[token("~")]
     Tilde,
+
     #[regex(r"[0-9]+", |lex| lex.slice().parse::<i64>().ok())]
     Num(i64),
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_']*", |lex| lex.slice().to_string())]
     Ident(String),
+
+    #[regex(r"[ \t\n\r\f]+", skip)]
+    #[regex(r"--[^\n\r]*", skip, allow_greedy = true)]
+    Whitespace,
 }
 
-#[derive(Debug, Clone)]
-pub struct Spanned {
-    pub tok: Token,
-    pub span: (usize, usize),
-}
-
-pub fn lex(src: &str) -> Result<Vec<Spanned>> {
-    let mut out = Vec::new();
-    for (tok, span) in Token::lexer(src).spanned() {
-        let t = tok.map_err(|()| Error::Parse(format!("unexpected character at {span:?}")))?;
-        out.push(Spanned {
-            tok: t,
-            span: (span.start, span.end),
-        });
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Let => write!(f, "let"),
+            Self::In => write!(f, "in"),
+            Self::If => write!(f, "if"),
+            Self::Then => write!(f, "then"),
+            Self::Else => write!(f, "else"),
+            Self::True => write!(f, "true"),
+            Self::False => write!(f, "false"),
+            Self::Eval => write!(f, "eval"),
+            Self::NatTy => write!(f, "Nat"),
+            Self::BoolTy => write!(f, "Bool"),
+            Self::Code => write!(f, "Code"),
+            Self::Fn => write!(f, "fn"),
+            Self::FatArrow => write!(f, "=>"),
+            Self::Arrow => write!(f, "->"),
+            Self::Eq => write!(f, "="),
+            Self::EqEq => write!(f, "=="),
+            Self::Lt => write!(f, "<"),
+            Self::Gt => write!(f, ">"),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Star => write!(f, "*"),
+            Self::Colon => write!(f, ":"),
+            Self::Semi => write!(f, ";"),
+            Self::Dot => write!(f, "."),
+            Self::LParen => write!(f, "("),
+            Self::RParen => write!(f, ")"),
+            Self::Lambda => write!(f, "\\"),
+            Self::Tilde => write!(f, "~"),
+            Self::Num(n) => write!(f, "{n}"),
+            Self::Ident(s) => write!(f, "{s}"),
+            Self::Whitespace => write!(f, "<whitespace>"),
+        }
     }
-    Ok(out)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum LexicalError {
+    #[error("invalid token at byte offset {0}")]
+    InvalidToken(usize),
+}
+
+#[derive(Debug)]
+pub struct Lexer<'input> {
+    inner: LogosLexer<'input, Token>,
+}
+
+impl<'input> Lexer<'input> {
+    #[must_use]
+    pub fn new(input: &'input str) -> Self {
+        Self {
+            inner: Token::lexer(input),
+        }
+    }
+}
+
+impl Iterator for Lexer<'_> {
+    type Item = Result<(usize, Token, usize), LexicalError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let tok = self.inner.next()?;
+            let span = self.inner.span();
+            return Some(match tok {
+                Ok(Token::Whitespace) => continue,
+                Ok(t) => Ok((span.start, t, span.end)),
+                Err(()) => Err(LexicalError::InvalidToken(span.start)),
+            });
+        }
+    }
 }

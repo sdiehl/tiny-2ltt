@@ -12,8 +12,12 @@ description = "Two-level type theory with quote and splice, in around 1500 lines
 
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
+lalrpop-util = { version = "0.23.1", features = ["lexer", "unicode"] }
 logos = "0.16"
 thiserror = "2.0"
+
+[build-dependencies]
+lalrpop = { version = "0.23.1", features = ["lexer", "unicode"] }
 
 [dev-dependencies]
 insta = { version = "1.41", features = ["glob"] }

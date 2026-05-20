@@ -16,19 +16,20 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { scope: Vec::new() }
     }
 
-    fn push(&self, n: Name, ty: Rc<Ty>, stage: Stage) -> Self {
+    fn push(&self, nm: Name, ty: Rc<Ty>, stage: Stage) -> Self {
         let mut next = self.clone();
-        next.scope.push((n, Binding { ty, stage }));
+        next.scope.push((nm, Binding { ty, stage }));
         next
     }
 
-    pub fn bind(&mut self, n: Name, ty: Rc<Ty>) {
+    pub fn bind(&mut self, nm: Name, ty: Rc<Ty>) {
         self.scope.push((
-            n,
+            nm,
             Binding {
                 ty,
                 stage: Stage::Zero,
@@ -36,57 +37,56 @@ impl Env {
         ));
     }
 
-    fn lookup(&self, n: &str) -> Option<&Binding> {
+    fn lookup(&self, nm: &str) -> Option<&Binding> {
         self.scope
             .iter()
             .rev()
-            .find(|(k, _)| k.as_ref() == n)
+            .find(|(k, _)| k.as_ref() == nm)
             .map(|(_, b)| b)
     }
 }
 
-pub fn check_decl(env: &Env, t: &Tm, ty: &Rc<Ty>) -> Result<()> {
-    check(env, Stage::Zero, t, ty)
+pub fn check_decl(env: &Env, tm: &Tm, ty: &Rc<Ty>) -> Result<()> {
+    check(env, Stage::Zero, tm, ty)
 }
 
-pub fn infer_top(env: &Env, t: &Tm) -> Result<Rc<Ty>> {
-    infer(env, Stage::Zero, t)
+pub fn infer_top(env: &Env, tm: &Tm) -> Result<Rc<Ty>> {
+    infer(env, Stage::Zero, tm)
 }
 
-fn check(env: &Env, stage: Stage, t: &Tm, ty: &Rc<Ty>) -> Result<()> {
-    match (t, ty.as_ref()) {
-        (Tm::Lam(n, ann, b), Ty::Arr(a, r)) => {
+fn check(env: &Env, stage: Stage, tm: &Tm, ty: &Rc<Ty>) -> Result<()> {
+    match (tm, ty.as_ref()) {
+        (Tm::Lam(nm, ann, body), Ty::Arr(dom, cod)) => {
             if let Some(ann_ty) = ann {
-                if ann_ty.as_ref() != a.as_ref() {
+                if ann_ty.as_ref() != dom.as_ref() {
                     return Err(Error::Type(format!(
                         "lambda parameter annotated {}, expected {}",
                         pretty::ty(ann_ty),
-                        pretty::ty(a)
+                        pretty::ty(dom)
                     )));
                 }
             }
-            let env2 = env.push(n.clone(), Rc::clone(a), stage);
-            check(&env2, stage, b, r)
+            let env2 = env.push(nm.clone(), Rc::clone(dom), stage);
+            check(&env2, stage, body, cod)
         }
         (Tm::Quote(e), Ty::Code(inner)) if stage == Stage::Zero => check(env, Stage::One, e, inner),
-        (Tm::If(c, th, el), _) => {
-            check(env, stage, c, &Rc::new(Ty::Bool))?;
+        (Tm::If(cnd, th, el), _) => {
+            check(env, stage, cnd, &Rc::new(Ty::Bool))?;
             check(env, stage, th, ty)?;
             check(env, stage, el, ty)
         }
-        (Tm::Let(n, ann, v, b), _) => {
-            let v_ty = match ann {
-                Some(a) => {
-                    check(env, stage, v, a)?;
-                    Rc::clone(a)
-                }
-                None => infer(env, stage, v)?,
+        (Tm::Let(nm, ann, val, body), _) => {
+            let v_ty = if let Some(a) = ann {
+                check(env, stage, val, a)?;
+                Rc::clone(a)
+            } else {
+                infer(env, stage, val)?
             };
-            let env2 = env.push(n.clone(), v_ty, stage);
-            check(&env2, stage, b, ty)
+            let env2 = env.push(nm.clone(), v_ty, stage);
+            check(&env2, stage, body, ty)
         }
         _ => {
-            let inferred = infer(env, stage, t)?;
+            let inferred = infer(env, stage, tm)?;
             if inferred.as_ref() != ty.as_ref() {
                 return Err(Error::Type(format!(
                     "expected {}, got {}",
@@ -99,35 +99,36 @@ fn check(env: &Env, stage: Stage, t: &Tm, ty: &Rc<Ty>) -> Result<()> {
     }
 }
 
-fn infer(env: &Env, stage: Stage, t: &Tm) -> Result<Rc<Ty>> {
-    match t {
-        Tm::Var(n) => match env.lookup(n) {
-            Some(b) => {
-                if b.stage != stage {
-                    return Err(Error::Type(format!(
-                        "variable `{n}` bound at stage {} but used at stage {stage}",
+fn infer(env: &Env, stage: Stage, tm: &Tm) -> Result<Rc<Ty>> {
+    match tm {
+        Tm::Var(nm) => env.lookup(nm).map_or_else(
+            || Err(Error::Type(format!("unbound variable `{nm}`"))),
+            |b| {
+                if b.stage == stage {
+                    Ok(Rc::clone(&b.ty))
+                } else {
+                    Err(Error::Type(format!(
+                        "variable `{nm}` bound at stage {} but used at stage {stage}",
                         b.stage
-                    )));
+                    )))
                 }
-                Ok(Rc::clone(&b.ty))
-            }
-            None => Err(Error::Type(format!("unbound variable `{n}`"))),
-        },
+            },
+        ),
         Tm::NatLit(_) => Ok(Rc::new(Ty::Nat)),
         Tm::BoolLit(_) => Ok(Rc::new(Ty::Bool)),
-        Tm::Lam(n, Some(a), b) => {
-            let env2 = env.push(n.clone(), Rc::clone(a), stage);
-            let r = infer(&env2, stage, b)?;
-            Ok(Rc::new(Ty::Arr(Rc::clone(a), r)))
+        Tm::Lam(nm, Some(dom), body) => {
+            let env2 = env.push(nm.clone(), Rc::clone(dom), stage);
+            let cod = infer(&env2, stage, body)?;
+            Ok(Rc::new(Ty::Arr(Rc::clone(dom), cod)))
         }
         Tm::Lam(_, None, _) => Err(Error::Type(
             "cannot infer lambda without parameter annotation".into(),
         )),
-        Tm::App(f, a) => {
-            let ft = infer(env, stage, f)?;
+        Tm::App(fun, arg) => {
+            let ft = infer(env, stage, fun)?;
             match ft.as_ref() {
                 Ty::Arr(dom, cod) => {
-                    check(env, stage, a, dom)?;
+                    check(env, stage, arg, dom)?;
                     Ok(Rc::clone(cod))
                 }
                 _ => Err(Error::Type(format!(
@@ -136,29 +137,28 @@ fn infer(env: &Env, stage: Stage, t: &Tm) -> Result<Rc<Ty>> {
                 ))),
             }
         }
-        Tm::Let(n, ann, v, b) => {
-            let v_ty = match ann {
-                Some(a) => {
-                    check(env, stage, v, a)?;
-                    Rc::clone(a)
-                }
-                None => infer(env, stage, v)?,
+        Tm::Let(nm, ann, val, body) => {
+            let v_ty = if let Some(a) = ann {
+                check(env, stage, val, a)?;
+                Rc::clone(a)
+            } else {
+                infer(env, stage, val)?
             };
-            let env2 = env.push(n.clone(), v_ty, stage);
-            infer(&env2, stage, b)
+            let env2 = env.push(nm.clone(), v_ty, stage);
+            infer(&env2, stage, body)
         }
-        Tm::Bin(op, a, b) => {
+        Tm::Bin(op, lhs, rhs) => {
             let (in_ty, out_ty) = match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul => (Ty::Nat, Ty::Nat),
                 BinOp::Eq => (Ty::Nat, Ty::Bool),
             };
             let in_ty = Rc::new(in_ty);
-            check(env, stage, a, &in_ty)?;
-            check(env, stage, b, &in_ty)?;
+            check(env, stage, lhs, &in_ty)?;
+            check(env, stage, rhs, &in_ty)?;
             Ok(Rc::new(out_ty))
         }
-        Tm::If(c, th, el) => {
-            check(env, stage, c, &Rc::new(Ty::Bool))?;
+        Tm::If(cnd, th, el) => {
+            check(env, stage, cnd, &Rc::new(Ty::Bool))?;
             let tt = infer(env, stage, th)?;
             check(env, stage, el, &tt)?;
             Ok(tt)

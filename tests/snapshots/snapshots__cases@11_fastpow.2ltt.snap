@@ -1,0 +1,10 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/11_fastpow.2ltt
+---
+let div2 : Nat -> Nat
+let mod2 : Nat -> Nat
+let sq : Code Nat -> Code Nat
+let fastpow : Nat -> Code Nat -> Code Nat
+<\z_0. z_0 * (let y_4 = let y_3 = z_0 * (let y_2 = z_0 * (let y_1 = 1 in y_1 * y_1) in y_2 * y_2) in y_3 * y_3 in y_4 * y_4)> : Code (Nat -> Nat)

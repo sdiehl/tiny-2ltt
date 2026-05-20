@@ -2,12 +2,14 @@ use std::fmt::{self, Write};
 
 use crate::syntax::{BinOp, Tm, Ty};
 
+#[must_use]
 pub fn ty(t: &Ty) -> String {
     let mut s = String::new();
     fmt_ty(t, 0, &mut s).unwrap();
     s
 }
 
+#[must_use]
 pub fn tm(t: &Tm) -> String {
     let mut s = String::new();
     fmt_tm(t, 0, &mut s).unwrap();
@@ -53,7 +55,7 @@ const P_MUL: u8 = 30;
 const P_APP: u8 = 40;
 const P_PRE: u8 = 50;
 
-fn op_prec(op: BinOp) -> (u8, u8, u8) {
+const fn op_prec(op: BinOp) -> (u8, u8, u8) {
     match op {
         BinOp::Eq => (P_EQ, P_EQ + 1, P_EQ + 1),
         BinOp::Add | BinOp::Sub => (P_ADD, P_ADD, P_ADD + 1),

@@ -1,0 +1,23 @@
+-- square-and-multiply: each squaring is shared via a stage-1 let, so
+-- the residual program is logarithmic in the exponent. the nested lets
+-- mirror the binary representation of n.
+
+let div2 : Nat -> Nat = \n.
+  if n == 0 then 0
+  else if n == 1 then 0
+  else 1 + div2 (n - 2);
+
+let mod2 : Nat -> Nat = \n.
+  if n == 0 then 0
+  else if n == 1 then 1
+  else mod2 (n - 2);
+
+let sq : Code Nat -> Code Nat = \c.
+  <let y : Nat = ~c in y * y>;
+
+let fastpow : Nat -> Code Nat -> Code Nat = \n. \x.
+  if n == 0 then <1>
+  else if mod2 n == 0 then sq (fastpow (div2 n) x)
+  else <~x * ~(sq (fastpow (div2 n) x))>;
+
+eval <\(z : Nat). ~(fastpow 13 <z>)>;

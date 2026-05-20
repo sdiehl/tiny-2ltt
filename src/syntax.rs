@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 pub type Name = Rc<str>;
 
+#[must_use]
 pub fn name(s: &str) -> Name {
     Rc::from(s)
 }
@@ -11,15 +12,17 @@ pub fn name(s: &str) -> Name {
 pub enum Ty {
     Nat,
     Bool,
-    Arr(Rc<Ty>, Rc<Ty>),
-    Code(Rc<Ty>),
+    Arr(Rc<Self>, Rc<Self>),
+    Code(Rc<Self>),
 }
 
 impl Ty {
+    #[must_use]
     pub fn arr(a: Self, b: Self) -> Self {
         Self::Arr(Rc::new(a), Rc::new(b))
     }
 
+    #[must_use]
     pub fn code(a: Self) -> Self {
         Self::Code(Rc::new(a))
     }
@@ -34,6 +37,7 @@ pub enum BinOp {
 }
 
 impl BinOp {
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Add => "+",
@@ -49,14 +53,22 @@ pub enum Tm {
     Var(Name),
     NatLit(i64),
     BoolLit(bool),
-    Lam(Name, Option<Rc<Ty>>, Rc<Tm>),
-    App(Rc<Tm>, Rc<Tm>),
-    Let(Name, Option<Rc<Ty>>, Rc<Tm>, Rc<Tm>),
-    Bin(BinOp, Rc<Tm>, Rc<Tm>),
-    If(Rc<Tm>, Rc<Tm>, Rc<Tm>),
-    Quote(Rc<Tm>),
-    Splice(Rc<Tm>),
-    Ann(Rc<Tm>, Rc<Ty>),
+    Lam(Name, Option<Rc<Ty>>, Rc<Self>),
+    App(Rc<Self>, Rc<Self>),
+    Let(Name, Option<Rc<Ty>>, Rc<Self>, Rc<Self>),
+    Bin(BinOp, Rc<Self>, Rc<Self>),
+    If(Rc<Self>, Rc<Self>, Rc<Self>),
+    Quote(Rc<Self>),
+    Splice(Rc<Self>),
+    Ann(Rc<Self>, Rc<Ty>),
+}
+
+#[must_use]
+pub fn fold_lams(params: Vec<(Name, Option<Rc<Ty>>)>, body: Tm) -> Tm {
+    params
+        .into_iter()
+        .rev()
+        .fold(body, |acc, (nm, ann)| Tm::Lam(nm, ann, Rc::new(acc)))
 }
 
 #[derive(Debug, Clone)]
