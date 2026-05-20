@@ -1,0 +1,7 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/06_stage1_if.2ltt
+---
+let stage1_if : Code Bool -> Code Nat
+<\test_0. if test_0 then 1 else 0> : Code (Bool -> Nat)

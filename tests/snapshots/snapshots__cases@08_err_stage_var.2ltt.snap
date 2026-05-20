@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/08_err_stage_var.2ltt
+---
+error: type error: variable `n` bound at stage 0 but used at stage 1

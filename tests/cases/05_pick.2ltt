@@ -1,0 +1,5 @@
+let pick : Bool -> Code Nat -> Code Nat -> Code Nat =
+  \b. \x. \y. if b then x else y;
+
+eval <\(a : Nat) (c : Nat). ~(pick true <a> <c>)>;
+eval <\(a : Nat) (c : Nat). ~(pick false <a> <c>)>;

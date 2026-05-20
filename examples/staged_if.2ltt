@@ -1,0 +1,12 @@
+-- the stage-0 `if` collapses away, leaving only the stage-1 branch we
+-- actually selected; the stage-1 `if` is preserved because its scrutinee
+-- is opaque code.
+
+let pick : Bool -> Code Nat -> Code Nat -> Code Nat =
+  \b. \x. \y. if b then x else y;
+
+eval <\(a : Nat) (c : Nat). ~(pick true <a> <c>)>;
+eval <\(a : Nat) (c : Nat). ~(pick false <a> <c>)>;
+
+let stage1_if : Code Bool -> Code Nat = \b. <if ~b then 1 else 0>;
+eval <\(test : Bool). ~(stage1_if <test>)>;

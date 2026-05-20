@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/09_err_splice_stage0.2ltt
+---
+error: type error: splice `~e` is only valid at stage 1

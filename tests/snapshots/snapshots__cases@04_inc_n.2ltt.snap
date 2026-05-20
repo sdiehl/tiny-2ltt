@@ -1,0 +1,7 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/04_inc_n.2ltt
+---
+let inc_n : Nat -> Code Nat -> Code Nat
+<\y_0. y_0 + 1 + 1 + 1 + 1> : Code (Nat -> Nat)

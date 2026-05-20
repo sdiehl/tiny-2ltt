@@ -1,0 +1,6 @@
+-- the canonical 2LTT identity: ~<e> reduces to e at stage 1.
+
+let dup : Code Nat -> Code Nat = \x. <~x + ~x>;
+
+eval dup <3>;
+eval <\(z : Nat). ~(dup <z * 2>)>;

@@ -1,0 +1,8 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/10_nested.2ltt
+---
+let dup : Code Nat -> Code Nat
+<3 + 3> : Code Nat
+<\z_0. z_0 * 2 + z_0 * 2> : Code (Nat -> Nat)

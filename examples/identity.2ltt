@@ -1,0 +1,9 @@
+-- smallest interesting program: quote, splice, and stage-0 const folding.
+-- ~<1> reduces away entirely; <1 + 2> stays opaque.
+
+eval <1 + 2>;
+eval <~<7>>;
+
+let const_one : Code Nat = <1>;
+eval const_one;
+eval <~const_one + ~const_one>;

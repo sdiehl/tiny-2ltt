@@ -1,0 +1,3 @@
+-- stage-0 variable used at stage 1: rejected by the staging discipline.
+let n : Nat = 3;
+eval <n + 1>;

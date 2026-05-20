@@ -1,0 +1,8 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/02_const.2ltt
+---
+let n : Code Nat
+<5 + 5> : Code Nat
+<\x_0. 5> : Code (Nat -> Nat)

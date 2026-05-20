@@ -1,0 +1,7 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/01_quote.2ltt
+---
+<1 + 2> : Code Nat
+<7> : Code Nat

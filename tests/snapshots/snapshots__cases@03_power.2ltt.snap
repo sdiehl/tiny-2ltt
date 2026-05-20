@@ -1,0 +1,7 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/03_power.2ltt
+---
+let pow : Nat -> Code Nat -> Code Nat
+<\y_0. y_0 * (y_0 * (y_0 * (y_0 * (y_0 * 1))))> : Code (Nat -> Nat)

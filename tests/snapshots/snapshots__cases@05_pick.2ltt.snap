@@ -1,0 +1,8 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/05_pick.2ltt
+---
+let pick : Bool -> Code Nat -> Code Nat -> Code Nat
+<\a_0. \c_1. a_0> : Code (Nat -> Nat -> Nat)
+<\a_2. \c_3. c_3> : Code (Nat -> Nat -> Nat)

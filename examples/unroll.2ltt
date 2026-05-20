@@ -1,0 +1,7 @@
+-- partial evaluation: when the loop bound is known at stage 0 the loop
+-- vanishes and is replaced by an unrolled stage-1 expression.
+
+let inc_n : Nat -> Code Nat -> Code Nat =
+  \n. \x. if n == 0 then x else inc_n (n - 1) <~x + 1>;
+
+eval <\(y : Nat). ~(inc_n 5 <y>)>;

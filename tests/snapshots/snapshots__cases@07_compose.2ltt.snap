@@ -1,0 +1,7 @@
+---
+source: tests/snapshots.rs
+expression: out
+input_file: tests/cases/07_compose.2ltt
+---
+let compose : Code (Nat -> Nat) -> Code (Nat -> Nat) -> Code (Nat -> Nat)
+<\x_2. (\a_0. a_0 + 1) ((\b_1. b_1 * 2) x_2)> : Code (Nat -> Nat)

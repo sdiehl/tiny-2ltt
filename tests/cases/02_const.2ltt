@@ -1,0 +1,3 @@
+let n : Code Nat = <5>;
+eval <~n + ~n>;
+eval <\(x : Nat). ~n>;

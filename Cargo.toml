@@ -1,0 +1,40 @@
+[package]
+name = "tiny-2ltt"
+version = "0.1.0"
+authors = ["Stephen Diehl <stephen.m.diehl@gmail.com>"]
+categories = ["algorithms"]
+edition = "2021"
+keywords = ["staging", "metaprogramming", "type-theory"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/sdiehl/tiny-2ltt"
+description = "Two-level type theory with quote and splice, in around 1500 lines"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+logos = "0.16"
+thiserror = "2.0"
+
+[dev-dependencies]
+insta = { version = "1.41", features = ["glob"] }
+
+[[bin]]
+name = "tiny-2ltt"
+path = "src/main.rs"
+
+[[example]]
+name = "demo"
+path = "examples/demo.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+multiple_crate_versions = "allow"

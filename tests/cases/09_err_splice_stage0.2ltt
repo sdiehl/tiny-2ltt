@@ -1,0 +1,3 @@
+-- a top-level splice is a stage error: splices live only inside quotes.
+let c : Code Nat = <42>;
+eval ~c;

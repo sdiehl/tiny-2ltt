@@ -1,0 +1,7 @@
+-- functional composition lifted to code: \x. f (g x), but with f and g
+-- supplied as compile-time code values that get inlined.
+
+let compose : Code (Nat -> Nat) -> Code (Nat -> Nat) -> Code (Nat -> Nat) =
+  \f. \g. <\(x : Nat). ~f (~g x)>;
+
+eval compose <\(a : Nat). a + 1> <\(b : Nat). b * 2>;

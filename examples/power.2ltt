@@ -1,0 +1,7 @@
+-- specialise an exponent at compile time. pow lives at stage 0 (meta)
+-- and produces residual stage-1 code.
+
+let pow : Nat -> Code Nat -> Code Nat =
+  \n. \x. if n == 0 then <1> else <~x * ~(pow (n - 1) x)>;
+
+eval <\(y : Nat). ~(pow 5 <y>)>;
