@@ -1,8 +1,8 @@
 # tiny-2ltt
 
-A tiny implementation of two-level type theory: a calculus with `<e>` (quote / code) and `~e` (splice) where the type system separates a compile-time meta language from a runtime object language.
+A toy implementation of two-level type theory: a calculus with `<e>` (quote / code) and `~e` (splice) where the type system separates a compile-time meta language from a runtime object language.
 
-The base type theory is unsurprising (Nat, Bool, arrow, `if`, `let`). The interesting part is the `Code A` type constructor and the two staging operators that mediate between the two levels:
+The base type theory is unsurprising (Nat, Bool, arrow, `if`, `let`, ... the MLy usual goodness). But the interesting part is the `Code A` type constructor and the two staging operators that mediate between the two levels:
 
 - if `e : A` at stage 1 then `<e> : Code A` at stage 0
 - if `e : Code A` at stage 0 then `~e : A` at stage 1
@@ -32,14 +32,6 @@ eval <\(y : Nat). ~(pow 5 <y>)>;
 
 More examples under [`examples/`](examples/) and [`tests/cases/`](tests/cases/). Expected outputs live as `insta` snapshots in [`tests/snapshots/`](tests/snapshots/).
 
-## Reading order
-
-- [`src/syntax.rs`](src/syntax.rs) terms, types, stages
-- [`src/lexer.rs`](src/lexer.rs), [`src/parse.rs`](src/parse.rs)
-- [`src/elab.rs`](src/elab.rs) bidirectional checker, two stage rules
-- [`src/eval.rs`](src/eval.rs) `eval0` / `eval1` mutually recursive
-- [`src/driver.rs`](src/driver.rs) top-level loop
-
 ## License
 
-MIT
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
